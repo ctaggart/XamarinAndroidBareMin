@@ -14,47 +14,56 @@ type CompleteGraph(ctx) =
     let calcPoints width height n =
         let w = float32 width
         let h = float32 height
-        let max = if w < h then w else h
-        
+        let d = if w < h then w else h
+        let r = d / 2.f
+
         let point i = 
-            let t = float32 (i % n) / float32 n * max * float32 Math.PI
-            w / 2.f + sin t, h / 2.f + cos t
+            let t = float32 (i % n) / float32 n * 2.f * float32 Math.PI
+            (r * sin t) + (w / 2.f), (r * cos t) + (h / 2.f)
         
         seq {
             for i = 0 to n - 1 do
-                 yield point i
+                yield point i
         }
 
     let calcLines width height n =
-        let points = calcPoints width height n |> Array.ofSeq // do with seq?
+        let points = calcPoints width height n |> Array.ofSeq
         seq {
-            yield points.[points.Length-1], points.[0]
-            for i = 0 to points.Length - 2 do
-                yield points.[i], points.[i+1]
+            for i = 0 to n - 1 do
+                for j = i + 1 to n - 1 do
+                    yield points.[i], points.[j]
         }
 
     let p = new Paint()
     do
-        //p.StrokeWidth <- 6.f
         p.Color <- Color.Purple
+
+    let mutable numberOfPoints = 3
 
     override x.OnDraw canvas =
         canvas.DrawColor Color.White
-
-//        canvas.DrawLine(0.f,0.f, float32 canvas.Width, float32 canvas.Height, p)
-
-        for (a,b),(c,d) in calcLines canvas.Width canvas.Height 3 do
+        for (a,b),(c,d) in calcLines canvas.Width canvas.Height numberOfPoints do
             canvas.DrawLine(a, b, c, d, p)
 
+    override x.OnTouchEvent ev =
+        numberOfPoints <- numberOfPoints + 1
+        x.Invalidate()
+        false
 
-[<Activity (Label = "CompleteGraph", MainLauncher = true)>]
+    member x.Reset() =
+        numberOfPoints <- 3
+        x.Invalidate()
+
+[<Activity (Label = "Complete Graph", MainLauncher = true)>]
 type MainActivity() =
     inherit Activity()
 
-    let mutable count = 0
+    let mutable cg = Unchecked.defaultof<CompleteGraph>
 
-    override this.OnCreate bundle =
+    override x.OnCreate bundle =
         base.OnCreate bundle
+        cg <- new CompleteGraph(x)
+        x.SetContentView cg
 
-        let v = new CompleteGraph(this)
-        this.SetContentView v
+    override x.OnBackPressed() =
+        cg.Reset()
